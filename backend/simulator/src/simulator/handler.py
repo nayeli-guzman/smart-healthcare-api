@@ -5,12 +5,11 @@ from .config import (
     DATASET_KEY,
     DATASET_NAME,
     DEFAULT_BATCH_SIZE,
-    MAX_FIREHOSE_BATCH_SIZE,
     RESET_ON_EOF
 )
 from .csv_reader import read_csv_batch
 from .event_builder import build_simulated_event
-from .firehose_writer import put_records_to_firehose
+from .s3_writer import write_events_to_s3
 from .state_store import get_state, update_state
 
 
@@ -22,7 +21,7 @@ def lambda_handler(event, context):
     1. Reads current CSV position from DynamoDB.
     2. Reads the next N rows from the Kaggle CSV in S3.
     3. Converts each row into an IoT-style clinical event.
-    4. Sends the events to Firehose.
+    4. Writes the batch into S3 Bronze as newline-delimited JSON.
     5. Updates DynamoDB with the next row position.
     """
     batch_size = DEFAULT_BATCH_SIZE
@@ -30,7 +29,7 @@ def lambda_handler(event, context):
     if isinstance(event, dict) and event.get("batch_size"):
         batch_size = int(event["batch_size"])
 
-    batch_size = max(1, min(batch_size, MAX_FIREHOSE_BATCH_SIZE))
+    batch_size = max(1, batch_size)
 
     state = get_state()
 
@@ -108,7 +107,12 @@ def lambda_handler(event, context):
         for index, (row_number, row_data) in enumerate(rows)
     ]
 
-    sent_count = put_records_to_firehose(simulated_events)
+    bronze_file_path = write_events_to_s3(
+        events=simulated_events,
+        batch_id=batch_id
+    )
+
+    sent_count = len(simulated_events)
 
     if reached_eof and RESET_ON_EOF:
         next_row = 0
@@ -129,7 +133,7 @@ def lambda_handler(event, context):
 
     print(
         f"IoT replay completed. sent_count={sent_count}, "
-        f"next_row={next_row}, status={status}"
+        f"next_row={next_row}, status={status}, bronze_file={bronze_file_path}"
     )
 
     return {
@@ -140,5 +144,6 @@ def lambda_handler(event, context):
         "sent_count": sent_count,
         "next_row": next_row,
         "status": status,
+        "bronze_file": bronze_file_path,
         "bronze_destination": f"s3://{BUCKET_NAME}/bronze/clinical-deterioration/"
     }
