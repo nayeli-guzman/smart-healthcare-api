@@ -1,0 +1,185 @@
+service: smart-healthcare-api
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.12
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  memorySize: 256
+  timeout: 60
+  logRetentionInDays: 7
+  architecture: x86_64
+
+  environment:
+    BUCKET_NAME: ${self:custom.bucketName}
+    DATASET_KEY: ${self:custom.datasetKey}
+    STATE_TABLE_NAME: ${self:custom.stateTableName}
+    FIREHOSE_STREAM_NAME: ${self:custom.firehoseName}
+    BATCH_SIZE: "${self:custom.batchSize}"
+    RESET_ON_EOF: "true"
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+          Resource:
+            - arn:aws:s3:::${self:custom.bucketName}/simulator/source/*
+
+        - Effect: Allow
+          Action:
+            - firehose:PutRecord
+            - firehose:PutRecordBatch
+          Resource:
+            Fn::GetAtt:
+              - ClinicalDeteriorationFirehose
+              - Arn
+
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+          Resource:
+            Fn::GetAtt:
+              - SimulatorStateTable
+              - Arn
+
+custom:
+  bucketName: smart-healthcare-iot-sim-${aws:accountId}-${sls:stage}
+  datasetKey: simulator/source/hospital_clinical_deterioration.csv
+  firehoseName: ${self:service}-${sls:stage}-clinical-deterioration-firehose
+  stateTableName: ${self:service}-${sls:stage}-iot-simulator-state
+  batchSize: ${opt:batchSize, 25}
+
+package:
+  patterns:
+    - "!**"
+    - "src/**"
+
+functions:
+  iotSimulator:
+    handler: src.simulator.handler.lambda_handler
+    description: Replays Kaggle Hospital Clinical Deterioration CSV rows as IoT-style clinical events.
+    reservedConcurrency: 1
+    events:
+      - schedule:
+          rate: rate(1 minute)
+          enabled: true
+
+resources:
+  Resources:
+
+    SimulatorBucket:
+      Type: AWS::S3::Bucket
+      DeletionPolicy: Retain
+      UpdateReplacePolicy: Retain
+      Properties:
+        BucketName: ${self:custom.bucketName}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        VersioningConfiguration:
+          Status: Suspended
+
+    SimulatorStateTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.stateTableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: dataset_name
+            AttributeType: S
+        KeySchema:
+          - AttributeName: dataset_name
+            KeyType: HASH
+
+    FirehoseDeliveryRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: ${self:service}-${sls:stage}-firehose-delivery-role
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: firehose.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Policies:
+          - PolicyName: firehose-s3-delivery-policy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:AbortMultipartUpload
+                    - s3:GetBucketLocation
+                    - s3:GetObject
+                    - s3:ListBucket
+                    - s3:ListBucketMultipartUploads
+                    - s3:PutObject
+                  Resource:
+                    - Fn::GetAtt:
+                        - SimulatorBucket
+                        - Arn
+                    - Fn::Join:
+                        - ""
+                        - - Fn::GetAtt:
+                              - SimulatorBucket
+                              - Arn
+                          - "/*"
+
+    ClinicalDeteriorationFirehose:
+      Type: AWS::KinesisFirehose::DeliveryStream
+      DependsOn:
+        - SimulatorBucket
+        - FirehoseDeliveryRole
+      Properties:
+        DeliveryStreamName: ${self:custom.firehoseName}
+        DeliveryStreamType: DirectPut
+        ExtendedS3DestinationConfiguration:
+          BucketARN:
+            Fn::GetAtt:
+              - SimulatorBucket
+              - Arn
+          RoleARN:
+            Fn::GetAtt:
+              - FirehoseDeliveryRole
+              - Arn
+          BufferingHints:
+            IntervalInSeconds: 60
+            SizeInMBs: 1
+          CompressionFormat: UNCOMPRESSED
+          Prefix: "bronze/clinical-deterioration/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
+          ErrorOutputPrefix: "logs/firehose-errors/!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
+
+  Outputs:
+    SimulatorBucketName:
+      Description: S3 bucket for simulator source CSV and bronze output.
+      Value:
+        Ref: SimulatorBucket
+
+    DatasetUploadPath:
+      Description: Upload the Kaggle CSV to this path.
+      Value:
+        Fn::Sub: "s3://${SimulatorBucket}/simulator/source/hospital_clinical_deterioration.csv"
+
+    BronzeOutputPath:
+      Description: Firehose writes simulated IoT clinical events here.
+      Value:
+        Fn::Sub: "s3://${SimulatorBucket}/bronze/clinical-deterioration/"
+
+    FirehoseStreamName:
+      Description: Firehose stream receiving simulated clinical events.
+      Value:
+        Ref: ClinicalDeteriorationFirehose
+
+    StateTableName:
+      Description: DynamoDB table storing replay progress.
+      Value:
+        Ref: SimulatorStateTable

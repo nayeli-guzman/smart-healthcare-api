@@ -1,0 +1,14 @@
+{
+  "name": "smart-healthcare-api",
+  "version": "1.0.0",
+  "description": "Serverless IoT-style CSV replay simulator for Hospital Clinical Deterioration Dataset.",
+  "scripts": {
+    "deploy": "sls deploy --stage dev --region us-east-1",
+    "remove": "sls remove --stage dev --region us-east-1",
+    "invoke": "sls invoke -f iotSimulator --stage dev --region us-east-1 --log",
+    "logs": "sls logs -f iotSimulator --stage dev --region us-east-1 -t"
+  },
+  "devDependencies": {
+    "serverless": "^3.38.0"
+  }
+}
