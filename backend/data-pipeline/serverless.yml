@@ -14,12 +14,20 @@ custom:
 
   bronzeCrawlerName: ${self:service}-${sls:stage}-bronze-crawler
   silverCrawlerName: ${self:service}-${sls:stage}-silver-crawler
+  goldCrawlerName: ${self:service}-${sls:stage}-gold-crawler
+
 
   bronzeToSilverJobName: ${self:service}-${sls:stage}-bronze-to-silver
+  silverToGoldJobName: ${self:service}-${sls:stage}-silver-to-gold
+
 
   bronzePrefix: bronze/clinical-deterioration/
   silverPrefix: silver/clinical-deterioration/
+  goldPrefix: gold/clinical-deterioration/department_metrics/
+
+
   glueScriptKey: scripts/glue/bronze_to_silver.py
+  goldScriptKey: scripts/glue/silver_to_gold.py
 
 resources:
   Resources:
@@ -123,6 +131,34 @@ resources:
           "--BRONZE_PREFIX": ${self:custom.bronzePrefix}
           "--SILVER_PREFIX": ${self:custom.silverPrefix}
 
+    SilverToGoldGlueJob:
+      Type: AWS::Glue::Job
+      Properties:
+        Name: ${self:custom.silverToGoldJobName}
+        Role:
+          Fn::GetAtt:
+            - GlueServiceRole
+            - Arn
+        Description: Creates curated Gold analytics metrics from Silver Parquet clinical events.
+        GlueVersion: "4.0"
+        WorkerType: G.1X
+        NumberOfWorkers: 2
+        Timeout: 20
+        ExecutionProperty:
+          MaxConcurrentRuns: 1
+        Command:
+          Name: glueetl
+          PythonVersion: "3"
+          ScriptLocation: s3://${self:custom.bucketName}/${self:custom.goldScriptKey}
+        DefaultArguments:
+          "--job-language": "python"
+          "--enable-metrics": "true"
+          "--enable-continuous-cloudwatch-log": "true"
+          "--TempDir": s3://${self:custom.bucketName}/tmp/glue/
+          "--BUCKET_NAME": ${self:custom.bucketName}
+          "--SILVER_PREFIX": ${self:custom.silverPrefix}
+          "--GOLD_PREFIX": ${self:custom.goldPrefix}
+
     SilverCrawler:
       Type: AWS::Glue::Crawler
       Properties:
@@ -138,6 +174,27 @@ resources:
         Targets:
           S3Targets:
             - Path: s3://${self:custom.bucketName}/${self:custom.silverPrefix}
+        SchemaChangePolicy:
+          UpdateBehavior: UPDATE_IN_DATABASE
+          DeleteBehavior: LOG
+        RecrawlPolicy:
+          RecrawlBehavior: CRAWL_EVERYTHING
+
+    GoldCrawler:
+      Type: AWS::Glue::Crawler
+      Properties:
+        Name: ${self:custom.goldCrawlerName}
+        Role:
+          Fn::GetAtt:
+            - GlueServiceRole
+            - Arn
+        DatabaseName:
+          Ref: SmartHealthcareGlueDatabase
+        Description: Crawls curated Gold analytics Parquet metrics.
+        TablePrefix: gold_
+        Targets:
+          S3Targets:
+            - Path: s3://${self:custom.bucketName}/${self:custom.goldPrefix}
         SchemaChangePolicy:
           UpdateBehavior: UPDATE_IN_DATABASE
           DeleteBehavior: LOG
@@ -164,11 +221,25 @@ resources:
       Value:
         Ref: SilverCrawler
 
+    GoldCrawlerName:
+      Description: Gold Glue crawler name.
+      Value:
+        Ref: GoldCrawler
+
     BronzeToSilverJobName:
       Description: Glue job that converts Bronze JSON to Silver Parquet.
       Value:
         Ref: BronzeToSilverGlueJob
-
+    
+    SilverToGoldJobName:
+      Description: Glue job that creates Gold analytics metrics.
+      Value:
+        Ref: SilverToGoldGlueJob
+    
     SilverOutputPath:
       Description: Silver Parquet output path.
       Value: s3://${self:custom.bucketName}/${self:custom.silverPrefix}
+
+    GoldOutputPath:
+      Description: Gold curated Parquet output path.
+      Value: s3://${self:custom.bucketName}/${self:custom.goldPrefix}
