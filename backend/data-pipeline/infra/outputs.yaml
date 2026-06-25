@@ -1,0 +1,56 @@
+Outputs:
+  BucketName:
+    Description: Existing S3 bucket used by the simulator and data pipeline.
+    Value: ${self:custom.bucketName}
+
+  GlueDatabaseName:
+    Description: Glue database name.
+    Value:
+      Ref: SmartHealthcareGlueDatabase
+
+  BronzeCrawlerName:
+    Description: Bronze Glue crawler name.
+    Value:
+      Ref: BronzeCrawler
+
+  SilverCrawlerName:
+    Description: Silver Glue crawler name.
+    Value:
+      Ref: SilverCrawler
+
+  GoldCrawlerName:
+    Description: Gold Glue crawler name.
+    Value:
+      Ref: GoldCrawler
+
+  BronzeToSilverJobName:
+    Description: Glue job that converts Bronze JSON to Silver Parquet.
+    Value:
+      Ref: BronzeToSilverGlueJob
+
+  SilverToGoldJobName:
+    Description: Glue job that creates Gold analytics metrics.
+    Value:
+      Ref: SilverToGoldGlueJob
+
+  SilverOutputPath:
+    Description: Silver Parquet output path.
+    Value: s3://${self:custom.bucketName}/${self:custom.silverPrefix}
+
+  GoldOutputPath:
+    Description: Gold curated Parquet output path.
+    Value: s3://${self:custom.bucketName}/${self:custom.goldPrefix}
+
+  AthenaWorkGroupName:
+    Description: Athena workgroup for Smart Healthcare analytics.
+    Value:
+      Ref: AthenaWorkGroup
+
+  AthenaResultsPath:
+    Description: Athena query result location.
+    Value: s3://${self:custom.bucketName}/${self:custom.athenaResultsPrefix}
+
+  StateMachineName:
+    Description: Step Functions state machine for the ETL pipeline.
+    Value:
+      Ref: HealthcareEtlStateMachine

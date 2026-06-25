@@ -1,0 +1,12 @@
+Resources:
+  AthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: ${self:custom.athenaWorkGroupName}
+      Description: Athena workgroup for Smart Healthcare analytics queries.
+      State: ENABLED
+      WorkGroupConfiguration:
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+        ResultConfiguration:
+          OutputLocation: s3://${self:custom.bucketName}/${self:custom.athenaResultsPrefix}

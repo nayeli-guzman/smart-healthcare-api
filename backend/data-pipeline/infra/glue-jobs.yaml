@@ -1,0 +1,56 @@
+Resources:
+  BronzeToSilverGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: ${self:custom.bronzeToSilverJobName}
+      Role:
+        Fn::GetAtt:
+          - GlueServiceRole
+          - Arn
+      Description: Converts Bronze JSON clinical events into cleaned Silver Parquet.
+      GlueVersion: "4.0"
+      WorkerType: G.1X
+      NumberOfWorkers: 2
+      Timeout: 20
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      Command:
+        Name: glueetl
+        PythonVersion: "3"
+        ScriptLocation: s3://${self:custom.bucketName}/${self:custom.glueScriptKey}
+      DefaultArguments:
+        "--job-language": "python"
+        "--enable-metrics": "true"
+        "--enable-continuous-cloudwatch-log": "true"
+        "--TempDir": s3://${self:custom.bucketName}/tmp/glue/
+        "--BUCKET_NAME": ${self:custom.bucketName}
+        "--BRONZE_PREFIX": ${self:custom.bronzePrefix}
+        "--SILVER_PREFIX": ${self:custom.silverPrefix}
+
+  SilverToGoldGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: ${self:custom.silverToGoldJobName}
+      Role:
+        Fn::GetAtt:
+          - GlueServiceRole
+          - Arn
+      Description: Creates curated Gold analytics metrics from Silver Parquet clinical events.
+      GlueVersion: "4.0"
+      WorkerType: G.1X
+      NumberOfWorkers: 2
+      Timeout: 20
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      Command:
+        Name: glueetl
+        PythonVersion: "3"
+        ScriptLocation: s3://${self:custom.bucketName}/${self:custom.goldScriptKey}
+      DefaultArguments:
+        "--job-language": "python"
+        "--enable-metrics": "true"
+        "--enable-continuous-cloudwatch-log": "true"
+        "--TempDir": s3://${self:custom.bucketName}/tmp/glue/
+        "--BUCKET_NAME": ${self:custom.bucketName}
+        "--SILVER_PREFIX": ${self:custom.silverPrefix}
+        "--GOLD_PREFIX": ${self:custom.goldPrefix}

@@ -1,0 +1,112 @@
+Comment: Smart Healthcare ETL workflow. Runs Glue crawlers and Glue jobs from Bronze to Silver to Gold.
+StartAt: Start Bronze Crawler
+States:
+  Start Bronze Crawler:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:glue:startCrawler
+    Parameters:
+      Name: ${self:custom.bronzeCrawlerName}
+    Catch:
+      - ErrorEquals:
+          - Glue.CrawlerRunningException
+        Next: Wait Bronze Crawler
+    Next: Wait Bronze Crawler
+
+  Wait Bronze Crawler:
+    Type: Wait
+    Seconds: 30
+    Next: Get Bronze Crawler
+
+  Get Bronze Crawler:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:glue:getCrawler
+    Parameters:
+      Name: ${self:custom.bronzeCrawlerName}
+    Next: Bronze Crawler Ready?
+
+  Bronze Crawler Ready?:
+    Type: Choice
+    Choices:
+      - Variable: $.Crawler.State
+        StringEquals: READY
+        Next: Run Bronze To Silver Job
+    Default: Wait Bronze Crawler
+
+  Run Bronze To Silver Job:
+    Type: Task
+    Resource: arn:aws:states:::glue:startJobRun.sync
+    Parameters:
+      JobName: ${self:custom.bronzeToSilverJobName}
+    Next: Start Silver Crawler
+
+  Start Silver Crawler:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:glue:startCrawler
+    Parameters:
+      Name: ${self:custom.silverCrawlerName}
+    Catch:
+      - ErrorEquals:
+          - Glue.CrawlerRunningException
+        Next: Wait Silver Crawler
+    Next: Wait Silver Crawler
+
+  Wait Silver Crawler:
+    Type: Wait
+    Seconds: 30
+    Next: Get Silver Crawler
+
+  Get Silver Crawler:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:glue:getCrawler
+    Parameters:
+      Name: ${self:custom.silverCrawlerName}
+    Next: Silver Crawler Ready?
+
+  Silver Crawler Ready?:
+    Type: Choice
+    Choices:
+      - Variable: $.Crawler.State
+        StringEquals: READY
+        Next: Run Silver To Gold Job
+    Default: Wait Silver Crawler
+
+  Run Silver To Gold Job:
+    Type: Task
+    Resource: arn:aws:states:::glue:startJobRun.sync
+    Parameters:
+      JobName: ${self:custom.silverToGoldJobName}
+    Next: Start Gold Crawler
+
+  Start Gold Crawler:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:glue:startCrawler
+    Parameters:
+      Name: ${self:custom.goldCrawlerName}
+    Catch:
+      - ErrorEquals:
+          - Glue.CrawlerRunningException
+        Next: Wait Gold Crawler
+    Next: Wait Gold Crawler
+
+  Wait Gold Crawler:
+    Type: Wait
+    Seconds: 30
+    Next: Get Gold Crawler
+
+  Get Gold Crawler:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:glue:getCrawler
+    Parameters:
+      Name: ${self:custom.goldCrawlerName}
+    Next: Gold Crawler Ready?
+
+  Gold Crawler Ready?:
+    Type: Choice
+    Choices:
+      - Variable: $.Crawler.State
+        StringEquals: READY
+        Next: Pipeline Complete
+    Default: Wait Gold Crawler
+
+  Pipeline Complete:
+    Type: Succeed

@@ -1,0 +1,10 @@
+Resources:
+  HealthcareEtlStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: ${self:custom.stateMachineName}
+      RoleArn:
+        Fn::GetAtt:
+          - StepFunctionsExecutionRole
+          - Arn
+      Definition: ${file(infra/step-functions-definition.yaml)}

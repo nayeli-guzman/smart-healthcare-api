@@ -1,0 +1,22 @@
+bucketName: smart-healthcare-iot-sim-${aws:accountId}-${sls:stage}
+
+glueDatabaseName: smart_healthcare_${sls:stage}
+
+bronzeCrawlerName: ${self:service}-${sls:stage}-bronze-crawler
+silverCrawlerName: ${self:service}-${sls:stage}-silver-crawler
+goldCrawlerName: ${self:service}-${sls:stage}-gold-crawler
+
+bronzeToSilverJobName: ${self:service}-${sls:stage}-bronze-to-silver
+silverToGoldJobName: ${self:service}-${sls:stage}-silver-to-gold
+
+bronzePrefix: bronze/clinical-deterioration/
+silverPrefix: silver/clinical-deterioration/
+goldPrefix: gold/clinical-deterioration/department_metrics/
+
+glueScriptKey: scripts/glue/bronze_to_silver.py
+goldScriptKey: scripts/glue/silver_to_gold.py
+
+athenaWorkGroupName: ${self:service}-${sls:stage}-workgroup
+athenaResultsPrefix: athena-results/
+
+stateMachineName: ${self:service}-${sls:stage}-etl-state-machine

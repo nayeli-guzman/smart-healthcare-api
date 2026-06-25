@@ -1,0 +1,9 @@
+Resources:
+  SmartHealthcareGlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId:
+        Ref: AWS::AccountId
+      DatabaseInput:
+        Name: ${self:custom.glueDatabaseName}
+        Description: Glue database for Smart Healthcare Bronze, Silver, and Gold tables.

@@ -1,0 +1,19 @@
+service: smart-healthcare-data-pipeline
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+
+custom: ${file(config/custom.yaml)}
+
+resources:
+  - ${file(infra/iam.yaml)}
+  - ${file(infra/glue-database.yaml)}
+  - ${file(infra/glue-crawlers.yaml)}
+  - ${file(infra/glue-jobs.yaml)}
+  - ${file(infra/athena.yaml)}
+  - ${file(infra/step-functions.yaml)}
+  - ${file(infra/outputs.yaml)}
