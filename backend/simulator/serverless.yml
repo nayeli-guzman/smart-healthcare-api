@@ -58,7 +58,6 @@ functions:
   iotSimulator:
     handler: src.simulator.handler.lambda_handler
     description: Replays Kaggle Hospital Clinical Deterioration CSV rows as IoT-style clinical events.
-    reservedConcurrency: 1
     events:
       - schedule:
           rate: rate(1 minute)
