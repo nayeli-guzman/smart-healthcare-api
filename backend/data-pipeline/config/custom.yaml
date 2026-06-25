@@ -20,3 +20,6 @@ athenaWorkGroupName: ${self:service}-${sls:stage}-workgroup
 athenaResultsPrefix: athena-results/
 
 stateMachineName: ${self:service}-${sls:stage}-etl-state-machine
+
+etlScheduleRate: rate(30 minutes)
+etlScheduleState: ENABLED

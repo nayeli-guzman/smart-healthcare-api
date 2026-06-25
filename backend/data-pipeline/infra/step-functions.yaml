@@ -8,3 +8,41 @@ Resources:
           - StepFunctionsExecutionRole
           - Arn
       Definition: ${file(infra/step-functions-definition.yaml)}
+
+  EventBridgeStepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: eventbridge-start-stepfunctions-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  Ref: HealthcareEtlStateMachine
+
+  ScheduledEtlRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: ${self:service}-${sls:stage}-scheduled-etl
+      Description: Periodically starts the Smart Healthcare ETL Step Functions workflow.
+      ScheduleExpression: ${self:custom.etlScheduleRate}
+      State: ${self:custom.etlScheduleState}
+      Targets:
+        - Id: SmartHealthcareEtlStateMachineTarget
+          Arn:
+            Ref: HealthcareEtlStateMachine
+          RoleArn:
+            Fn::GetAtt:
+              - EventBridgeStepFunctionsRole
+              - Arn
