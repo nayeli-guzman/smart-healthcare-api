@@ -44,7 +44,7 @@ print(f"Writing Gold data to: {gold_path}")
 
 df = (
     spark.read
-    .option("recursiveFileLookup", "true")
+    .option("basePath", silver_path)
     .parquet(silver_path)
 )
 
