@@ -29,6 +29,10 @@ custom:
   glueScriptKey: scripts/glue/bronze_to_silver.py
   goldScriptKey: scripts/glue/silver_to_gold.py
 
+
+  athenaWorkGroupName: ${self:service}-${sls:stage}-workgroup
+  athenaResultsPrefix: athena-results/
+
 resources:
   Resources:
 
@@ -201,6 +205,18 @@ resources:
         RecrawlPolicy:
           RecrawlBehavior: CRAWL_EVERYTHING
 
+    AthenaWorkGroup:
+      Type: AWS::Athena::WorkGroup
+      Properties:
+        Name: ${self:custom.athenaWorkGroupName}
+        Description: Athena workgroup for Smart Healthcare analytics queries.
+        State: ENABLED
+        WorkGroupConfiguration:
+          EnforceWorkGroupConfiguration: true
+          PublishCloudWatchMetricsEnabled: true
+          ResultConfiguration:
+            OutputLocation: s3://${self:custom.bucketName}/${self:custom.athenaResultsPrefix}
+
   Outputs:
     BucketName:
       Description: Existing S3 bucket used by the simulator and data pipeline.
@@ -243,3 +259,12 @@ resources:
     GoldOutputPath:
       Description: Gold curated Parquet output path.
       Value: s3://${self:custom.bucketName}/${self:custom.goldPrefix}
+
+    AthenaWorkGroupName:
+      Description: Athena workgroup for Smart Healthcare analytics.
+      Value:
+        Ref: AthenaWorkGroup
+
+    AthenaResultsPath:
+      Description: Athena query result location.
+      Value: s3://${self:custom.bucketName}/${self:custom.athenaResultsPrefix}
