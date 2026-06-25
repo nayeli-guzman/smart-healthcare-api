@@ -85,6 +85,7 @@ resources:
         DatabaseName:
           Ref: SmartHealthcareGlueDatabase
         Description: Crawls raw JSON clinical events in the Bronze zone.
+        TablePrefix: bronze_
         Targets:
           S3Targets:
             - Path: s3://${self:custom.bucketName}/${self:custom.bronzePrefix}
@@ -133,6 +134,7 @@ resources:
         DatabaseName:
           Ref: SmartHealthcareGlueDatabase
         Description: Crawls cleaned Parquet clinical events in the Silver zone.
+        TablePrefix: silver_
         Targets:
           S3Targets:
             - Path: s3://${self:custom.bucketName}/${self:custom.silverPrefix}
