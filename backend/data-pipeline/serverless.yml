@@ -1,0 +1,172 @@
+service: smart-healthcare-data-pipeline
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+
+custom:
+  bucketName: smart-healthcare-iot-sim-${aws:accountId}-${sls:stage}
+
+  glueDatabaseName: smart_healthcare_${sls:stage}
+
+  bronzeCrawlerName: ${self:service}-${sls:stage}-bronze-crawler
+  silverCrawlerName: ${self:service}-${sls:stage}-silver-crawler
+
+  bronzeToSilverJobName: ${self:service}-${sls:stage}-bronze-to-silver
+
+  bronzePrefix: bronze/clinical-deterioration/
+  silverPrefix: silver/clinical-deterioration/
+  glueScriptKey: scripts/glue/bronze_to_silver.py
+
+resources:
+  Resources:
+
+    SmartHealthcareGlueDatabase:
+      Type: AWS::Glue::Database
+      Properties:
+        CatalogId:
+          Ref: AWS::AccountId
+        DatabaseInput:
+          Name: ${self:custom.glueDatabaseName}
+          Description: Glue database for Smart Healthcare Bronze and Silver tables.
+
+    GlueServiceRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: ${self:service}-${sls:stage}-glue-service-role
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: glue.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Policies:
+          - PolicyName: smart-healthcare-glue-policy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:GetObject
+                    - s3:PutObject
+                    - s3:DeleteObject
+                    - s3:ListBucket
+                    - s3:GetBucketLocation
+                  Resource:
+                    - arn:aws:s3:::${self:custom.bucketName}
+                    - arn:aws:s3:::${self:custom.bucketName}/*
+
+                - Effect: Allow
+                  Action:
+                    - glue:*
+                  Resource: "*"
+
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                    - logs:AssociateKmsKey
+                  Resource: "*"
+
+    BronzeCrawler:
+      Type: AWS::Glue::Crawler
+      Properties:
+        Name: ${self:custom.bronzeCrawlerName}
+        Role:
+          Fn::GetAtt:
+            - GlueServiceRole
+            - Arn
+        DatabaseName:
+          Ref: SmartHealthcareGlueDatabase
+        Description: Crawls raw JSON clinical events in the Bronze zone.
+        Targets:
+          S3Targets:
+            - Path: s3://${self:custom.bucketName}/${self:custom.bronzePrefix}
+        SchemaChangePolicy:
+          UpdateBehavior: UPDATE_IN_DATABASE
+          DeleteBehavior: LOG
+        RecrawlPolicy:
+          RecrawlBehavior: CRAWL_EVERYTHING
+
+    BronzeToSilverGlueJob:
+      Type: AWS::Glue::Job
+      Properties:
+        Name: ${self:custom.bronzeToSilverJobName}
+        Role:
+          Fn::GetAtt:
+            - GlueServiceRole
+            - Arn
+        Description: Converts Bronze JSON clinical events into cleaned Silver Parquet.
+        GlueVersion: "4.0"
+        WorkerType: G.1X
+        NumberOfWorkers: 2
+        Timeout: 20
+        ExecutionProperty:
+          MaxConcurrentRuns: 1
+        Command:
+          Name: glueetl
+          PythonVersion: "3"
+          ScriptLocation: s3://${self:custom.bucketName}/${self:custom.glueScriptKey}
+        DefaultArguments:
+          "--job-language": "python"
+          "--enable-metrics": "true"
+          "--enable-continuous-cloudwatch-log": "true"
+          "--TempDir": s3://${self:custom.bucketName}/tmp/glue/
+          "--BUCKET_NAME": ${self:custom.bucketName}
+          "--BRONZE_PREFIX": ${self:custom.bronzePrefix}
+          "--SILVER_PREFIX": ${self:custom.silverPrefix}
+
+    SilverCrawler:
+      Type: AWS::Glue::Crawler
+      Properties:
+        Name: ${self:custom.silverCrawlerName}
+        Role:
+          Fn::GetAtt:
+            - GlueServiceRole
+            - Arn
+        DatabaseName:
+          Ref: SmartHealthcareGlueDatabase
+        Description: Crawls cleaned Parquet clinical events in the Silver zone.
+        Targets:
+          S3Targets:
+            - Path: s3://${self:custom.bucketName}/${self:custom.silverPrefix}
+        SchemaChangePolicy:
+          UpdateBehavior: UPDATE_IN_DATABASE
+          DeleteBehavior: LOG
+        RecrawlPolicy:
+          RecrawlBehavior: CRAWL_EVERYTHING
+
+  Outputs:
+    BucketName:
+      Description: Existing S3 bucket used by the simulator and data pipeline.
+      Value: ${self:custom.bucketName}
+
+    GlueDatabaseName:
+      Description: Glue database name.
+      Value:
+        Ref: SmartHealthcareGlueDatabase
+
+    BronzeCrawlerName:
+      Description: Bronze Glue crawler name.
+      Value:
+        Ref: BronzeCrawler
+
+    SilverCrawlerName:
+      Description: Silver Glue crawler name.
+      Value:
+        Ref: SilverCrawler
+
+    BronzeToSilverJobName:
+      Description: Glue job that converts Bronze JSON to Silver Parquet.
+      Value:
+        Ref: BronzeToSilverGlueJob
+
+    SilverOutputPath:
+      Description: Silver Parquet output path.
+      Value: s3://${self:custom.bucketName}/${self:custom.silverPrefix}
