@@ -3,10 +3,6 @@ import boto3
 import pandas as pd
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -22,7 +18,6 @@ OUTPUT_PREFIX = os.environ["OUTPUT_PREFIX"]
 LOCAL_INPUT = "forecast_training_data.csv"
 LOCAL_FORECAST = "forecast_results.csv"
 LOCAL_METRICS = "model_metrics.csv"
-LOCAL_PLOT = "forecast_plot.png"
 
 s3 = boto3.client("s3")
 
@@ -174,43 +169,15 @@ def main():
 
     metrics_df.to_csv(LOCAL_METRICS, index=False)
 
-    plot_df = (
-        results
-        .groupby("time_index")[["actual_deterioration_cases", "forecasted_deterioration_cases"]]
-        .sum()
-        .reset_index()
-        .sort_values("time_index")
-    )
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(
-        plot_df["time_index"],
-        plot_df["actual_deterioration_cases"],
-        marker="o",
-        label="Actual"
-    )
-    plt.plot(
-        plot_df["time_index"],
-        plot_df["forecasted_deterioration_cases"],
-        marker="o",
-        label="Forecast"
-    )
-    plt.xlabel("Hour from admission")
-    plt.ylabel("Deterioration cases")
-    plt.title("Actual vs Forecasted Clinical Deterioration Volume")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(LOCAL_PLOT)
 
     upload_output(LOCAL_FORECAST, OUTPUT_PREFIX + LOCAL_FORECAST)
     upload_output(LOCAL_METRICS, OUTPUT_PREFIX + LOCAL_METRICS)
-    upload_output(LOCAL_PLOT, OUTPUT_PREFIX + LOCAL_PLOT)
 
     print("")
     print("Forecasting complete.")
     print(f"Uploaded: s3://{BUCKET_NAME}/{OUTPUT_PREFIX}{LOCAL_FORECAST}")
     print(f"Uploaded: s3://{BUCKET_NAME}/{OUTPUT_PREFIX}{LOCAL_METRICS}")
-    print(f"Uploaded: s3://{BUCKET_NAME}/{OUTPUT_PREFIX}{LOCAL_PLOT}")
 
 
 if __name__ == "__main__":
