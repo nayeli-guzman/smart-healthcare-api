@@ -54,3 +54,16 @@ Outputs:
     Description: Step Functions state machine for the ETL pipeline.
     Value:
       Ref: HealthcareEtlStateMachine
+
+  SageMakerNotebookName:
+    Description: SageMaker notebook instance for the optional AI forecasting extension.
+    Value:
+      Ref: ForecastingNotebookInstance
+
+  MlInputPath:
+    Description: S3 path for SageMaker forecasting input dataset.
+    Value: s3://${self:custom.bucketName}/${self:custom.mlInputPrefix}
+
+  MlOutputPath:
+    Description: S3 path for SageMaker forecasting results.
+    Value: s3://${self:custom.bucketName}/${self:custom.mlOutputPrefix}

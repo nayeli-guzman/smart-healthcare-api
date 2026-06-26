@@ -1,0 +1,75 @@
+Resources:
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - Fn::GetAtt:
+            - SageMakerExecutionManagedPolicy
+            - PolicyArn
+
+  SageMakerExecutionManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Permissions for SageMaker notebook to read Gold/Silver data and write ML outputs.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: S3AccessForHealthcareDataLake
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:ListBucket
+              - s3:GetBucketLocation
+            Resource:
+              - arn:aws:s3:::${self:custom.bucketName}
+              - arn:aws:s3:::${self:custom.bucketName}/*
+
+          - Sid: AthenaAccess
+            Effect: Allow
+            Action:
+              - athena:StartQueryExecution
+              - athena:GetQueryExecution
+              - athena:GetQueryResults
+              - athena:StopQueryExecution
+              - athena:ListQueryExecutions
+            Resource: "*"
+
+          - Sid: GlueCatalogReadAccess
+            Effect: Allow
+            Action:
+              - glue:GetDatabase
+              - glue:GetDatabases
+              - glue:GetTable
+              - glue:GetTables
+              - glue:GetPartition
+              - glue:GetPartitions
+            Resource: "*"
+
+          - Sid: CloudWatchLogsAccess
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: "*"
+
+  ForecastingNotebookInstance:
+    Type: AWS::SageMaker::NotebookInstance
+    Properties:
+      NotebookInstanceName: ${self:custom.sagemakerNotebookName}
+      InstanceType: ml.t3.medium
+      RoleArn:
+        Fn::GetAtt:
+          - SageMakerExecutionRole
+          - Arn
+      VolumeSizeInGB: 5

@@ -16,4 +16,5 @@ resources:
   - ${file(infra/glue-jobs.yaml)}
   - ${file(infra/athena.yaml)}
   - ${file(infra/step-functions.yaml)}
+  - ${file(infra/sagemaker.yaml)}
   - ${file(infra/outputs.yaml)}
