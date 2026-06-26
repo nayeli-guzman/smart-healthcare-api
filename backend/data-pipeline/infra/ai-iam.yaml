@@ -1,0 +1,150 @@
+Resources:
+  ForecastDatasetLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - Fn::GetAtt:
+            - ForecastDatasetLambdaManagedPolicy
+            - PolicyArn
+
+  ForecastDatasetLambdaManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Permissions for Lambda to prepare the SageMaker forecasting dataset using Athena.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AthenaQueryAccess
+            Effect: Allow
+            Action:
+              - athena:StartQueryExecution
+              - athena:GetQueryExecution
+              - athena:GetQueryResults
+              - athena:StopQueryExecution
+            Resource: "*"
+
+          - Sid: GlueCatalogReadAccess
+            Effect: Allow
+            Action:
+              - glue:GetDatabase
+              - glue:GetDatabases
+              - glue:GetTable
+              - glue:GetTables
+              - glue:GetPartition
+              - glue:GetPartitions
+            Resource: "*"
+
+          - Sid: S3AccessForAthenaResultsAndMlInput
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:CopyObject
+              - s3:ListBucket
+              - s3:GetBucketLocation
+            Resource:
+              - arn:aws:s3:::${self:custom.bucketName}
+              - arn:aws:s3:::${self:custom.bucketName}/*
+
+          - Sid: CloudWatchLogsAccess
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: "*"
+
+  AiForecastStepFunctionsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - Fn::GetAtt:
+            - AiForecastStepFunctionsManagedPolicy
+            - PolicyArn
+
+  AiForecastStepFunctionsManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Permissions for the AI forecasting Step Functions state machine.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: InvokeForecastDatasetLambda
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource:
+              Fn::GetAtt:
+                - PrepareForecastDatasetLambdaFunction
+                - Arn
+
+          - Sid: SageMakerProcessingAccess
+            Effect: Allow
+            Action:
+              - sagemaker:CreateProcessingJob
+              - sagemaker:DescribeProcessingJob
+              - sagemaker:StopProcessingJob
+            Resource: "*"
+
+          - Sid: PassSageMakerRole
+            Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              Fn::GetAtt:
+                - SageMakerExecutionRole
+                - Arn
+
+          - Sid: EventBridgeSyncIntegration
+            Effect: Allow
+            Action:
+              - events:PutTargets
+              - events:PutRule
+              - events:DescribeRule
+            Resource: "*"
+
+  EventBridgeAiStepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - Fn::GetAtt:
+            - EventBridgeAiStepFunctionsManagedPolicy
+            - PolicyArn
+
+  EventBridgeAiStepFunctionsManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Allows EventBridge to start the AI forecasting Step Functions workflow.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: StartAiForecastStateMachine
+            Effect: Allow
+            Action:
+              - states:StartExecution
+            Resource:
+              Ref: AiForecastStateMachine

@@ -1,0 +1,70 @@
+Resources:
+  AiForecastStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: ${self:custom.aiForecastStateMachineName}
+      RoleArn:
+        Fn::GetAtt:
+          - AiForecastStepFunctionsExecutionRole
+          - Arn
+      Definition:
+        Comment: AI forecasting workflow. Prepares forecasting dataset with Athena and runs SageMaker forecasting.
+        StartAt: Prepare Forecast Dataset
+        States:
+          Prepare Forecast Dataset:
+            Type: Task
+            Resource:
+              Fn::GetAtt:
+                - PrepareForecastDatasetLambdaFunction
+                - Arn
+            Next: Run SageMaker Forecast
+
+          Run SageMaker Forecast:
+            Type: Task
+            Resource: arn:aws:states:::sagemaker:createProcessingJob.sync
+            Parameters:
+              ProcessingJobName.$: States.Format('healthcare-forecast-{}', States.UUID())
+              RoleArn:
+                Fn::GetAtt:
+                  - SageMakerExecutionRole
+                  - Arn
+              AppSpecification:
+                ImageUri: ${self:custom.sagemakerSklearnImageUri}
+                ContainerEntrypoint:
+                  - python3
+                  - /opt/ml/processing/input/code/forecast_deterioration_volume.py
+              ProcessingInputs:
+                - InputName: code
+                  S3Input:
+                    S3Uri: s3://${self:custom.bucketName}/${self:custom.forecastScriptKey}
+                    LocalPath: /opt/ml/processing/input/code
+                    S3DataType: S3Prefix
+                    S3InputMode: File
+              ProcessingResources:
+                ClusterConfig:
+                  InstanceCount: 1
+                  InstanceType: ${self:custom.sagemakerProcessingInstanceType}
+                  VolumeSizeInGB: 5
+              StoppingCondition:
+                MaxRuntimeInSeconds: 900
+              Environment:
+                BUCKET_NAME: ${self:custom.bucketName}
+                INPUT_KEY: ${self:custom.forecastDatasetKey}
+                OUTPUT_PREFIX: ${self:custom.mlOutputPrefix}
+            End: true
+
+  ScheduledAiForecastRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: ${self:service}-${sls:stage}-scheduled-ai-forecast
+      Description: Periodically starts the Smart Healthcare AI forecasting workflow.
+      ScheduleExpression: ${self:custom.aiScheduleRate}
+      State: ${self:custom.aiScheduleState}
+      Targets:
+        - Id: SmartHealthcareAiForecastStateMachineTarget
+          Arn:
+            Ref: AiForecastStateMachine
+          RoleArn:
+            Fn::GetAtt:
+              - EventBridgeAiStepFunctionsRole
+              - Arn

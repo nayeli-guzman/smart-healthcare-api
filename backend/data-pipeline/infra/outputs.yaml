@@ -67,3 +67,16 @@ Outputs:
   MlOutputPath:
     Description: S3 path for SageMaker forecasting results.
     Value: s3://${self:custom.bucketName}/${self:custom.mlOutputPrefix}
+
+  AiForecastStateMachineName:
+    Description: Step Functions state machine for the AI forecasting extension.
+    Value:
+      Ref: AiForecastStateMachine
+
+  AiForecastInputPath:
+    Description: S3 path for the AI forecasting input dataset.
+    Value: s3://${self:custom.bucketName}/${self:custom.mlInputPrefix}
+
+  AiForecastOutputPath:
+    Description: S3 path for the AI forecasting output files.
+    Value: s3://${self:custom.bucketName}/${self:custom.mlOutputPrefix}
