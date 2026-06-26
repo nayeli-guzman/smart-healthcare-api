@@ -23,3 +23,8 @@ stateMachineName: ${self:service}-${sls:stage}-etl-state-machine
 
 etlScheduleRate: rate(30 minutes)
 etlScheduleState: ENABLED
+
+sagemakerNotebookName: ${self:service}-${sls:stage}-forecasting-notebook
+
+mlInputPrefix: gold/ml/forecasting/input/
+mlOutputPrefix: gold/ml/forecasting/output/
