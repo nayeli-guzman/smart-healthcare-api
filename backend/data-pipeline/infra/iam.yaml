@@ -81,6 +81,14 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
+          - Sid: InvokeDashboardExportLambda
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource:
+              Fn::GetAtt:
+                - ExportDashboardMetricsLambdaFunction
+                - Arn
           - Sid: GlueCrawlerAndJobOrchestration
             Effect: Allow
             Action:
