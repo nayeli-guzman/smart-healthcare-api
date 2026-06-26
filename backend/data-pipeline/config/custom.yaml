@@ -26,9 +26,6 @@ etlScheduleState: ENABLED
 
 sagemakerNotebookName: ${self:service}-${sls:stage}-forecasting-notebook
 
-mlInputPrefix: gold/ml/forecasting/input/
-mlOutputPrefix: gold/ml/forecasting/output/
-
 forecastDatasetKey: gold/ml/forecasting/input/forecast_training_data.csv
 mlInputPrefix: gold/ml/forecasting/input/
 mlOutputPrefix: gold/ml/forecasting/output/
