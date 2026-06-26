@@ -80,3 +80,7 @@ Outputs:
   AiForecastOutputPath:
     Description: S3 path for the AI forecasting output files.
     Value: s3://${self:custom.bucketName}/${self:custom.mlOutputPrefix}
+
+  DashboardMetricsExportPath:
+    Description: S3 path for the exported historical dashboard metrics CSV.
+    Value: s3://${self:custom.bucketName}/${self:custom.dashboardMetricsKey}

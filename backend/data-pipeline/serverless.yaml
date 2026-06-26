@@ -25,6 +25,23 @@ functions:
       WORKGROUP_NAME: ${self:custom.athenaWorkGroupName}
       DESTINATION_KEY: ${self:custom.forecastDatasetKey}
 
+  exportDashboardMetrics:
+    handler: src.dashboard.export_dashboard_metrics.lambda_handler
+    runtime: python3.11
+    memorySize: 256
+    timeout: 420
+    role:
+      Fn::GetAtt:
+        - DashboardExportLambdaRole
+        - Arn
+    environment:
+      BUCKET_NAME: ${self:custom.bucketName}
+      DATABASE_NAME: ${self:custom.glueDatabaseName}
+      GLUE_CATALOG_NAME: ${self:custom.glueCatalogName}
+      GOLD_TABLE_NAME: ${self:custom.goldDashboardTableName}
+      WORKGROUP_NAME: ${self:custom.athenaWorkGroupName}
+      DESTINATION_KEY: ${self:custom.dashboardMetricsKey}
+
 resources:
   - ${file(infra/iam.yaml)}
   - ${file(infra/glue-database.yaml)}
@@ -36,3 +53,4 @@ resources:
   - ${file(infra/outputs.yaml)}
   - ${file(infra/ai-iam.yaml)}
   - ${file(infra/ai-step-functions.yaml)}
+  - ${file(infra/dashboard-export-iam.yaml)}

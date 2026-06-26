@@ -49,6 +49,15 @@ Resources:
               - logs:AssociateKmsKey
             Resource: "*"
 
+          - Sid: InvokeDashboardExportLambda
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource:
+              Fn::GetAtt:
+                - ExportDashboardMetricsLambdaFunction
+                - Arn
+
   StepFunctionsExecutionRole:
     Type: AWS::IAM::Role
     Properties:

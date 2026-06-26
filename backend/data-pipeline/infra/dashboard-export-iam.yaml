@@ -1,0 +1,64 @@
+Resources:
+  DashboardExportLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - Fn::GetAtt:
+            - DashboardExportLambdaManagedPolicy
+            - PolicyArn
+
+  DashboardExportLambdaManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Permissions for Lambda to export Gold dashboard metrics using Athena and Glue Data Catalog.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AthenaDashboardExportAccess
+            Effect: Allow
+            Action:
+              - athena:StartQueryExecution
+              - athena:GetQueryExecution
+              - athena:GetQueryResults
+              - athena:StopQueryExecution
+            Resource: "*"
+
+          - Sid: GlueCatalogReadAccess
+            Effect: Allow
+            Action:
+              - glue:GetCatalog
+              - glue:GetDatabase
+              - glue:GetDatabases
+              - glue:GetTable
+              - glue:GetTables
+              - glue:GetPartition
+              - glue:GetPartitions
+            Resource: "*"
+
+          - Sid: S3AccessForAthenaResultsAndDashboardExport
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:CopyObject
+              - s3:ListBucket
+              - s3:GetBucketLocation
+            Resource:
+              - arn:aws:s3:::${self:custom.bucketName}
+              - arn:aws:s3:::${self:custom.bucketName}/*
+
+          - Sid: CloudWatchLogsAccess
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: "*"

@@ -37,3 +37,8 @@ aiScheduleState: DISABLED
 
 sagemakerProcessingInstanceType: ml.t3.medium
 sagemakerSklearnImageUri: 683313688378.dkr.ecr.us-east-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3
+
+glueCatalogName: AwsDataCatalog
+goldDashboardTableName: gold_department_metrics
+dashboardMetricsKey: gold/dashboard/historical/gold_dashboard_metrics.csv
+dashboardMetricsPrefix: gold/dashboard/historical/

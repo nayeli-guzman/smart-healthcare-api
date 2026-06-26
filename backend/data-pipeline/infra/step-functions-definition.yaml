@@ -105,8 +105,16 @@ States:
     Choices:
       - Variable: $.Crawler.State
         StringEquals: READY
-        Next: Pipeline Complete
+        Next: Export Dashboard Metrics
     Default: Wait Gold Crawler
+
+  Export Dashboard Metrics:
+    Type: Task
+    Resource:
+      Fn::GetAtt:
+        - ExportDashboardMetricsLambdaFunction
+        - Arn
+    Next: Pipeline Complete
 
   Pipeline Complete:
     Type: Succeed
